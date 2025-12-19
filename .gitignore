@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pylance/
+.vscode/
+
+# Large raw CMS datasets (keep local / read-only)
+Doctors_*/
+hospitals_*/
+Hospitals_*/
+
+# Local datasets / exports in project root
+*.csv
+
+# Local outputs / caches
+cache/
+exports/
+*.log
+
+# Ad-hoc data artifacts
+*.zip
+*.xlsx
+*.xls
+*.pdf

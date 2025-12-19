@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMS Explorer</title>
+    <link rel="stylesheet" href="{{ url_for('cms.static', filename='css/cms.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <div class="brand">CMS Explorer</div>
+        <nav class="nav">
+          <a href="{{ url_for('cms.explorer') }}">Explorer</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

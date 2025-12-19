@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>CMS Explorer</h1>
+
+  <form method="post" class="card">
+    <div class="grid">
+      <label>
+        Dataset
+        <select name="dataset">
+          <option value="Doctors" {% if dataset == 'Doctors' %}selected{% endif %}>Doctors</option>
+          <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals</option>
+        </select>
+      </label>
+
+      <label>
+        States (comma-separated)
+        <input name="states" value="{{ states }}" placeholder="e.g. CA, OR" />
+      </label>
+
+      <label>
+        Doctors: Procedure category substrings (comma-separated)
+        <input name="procedure" value="{{ procedure }}" placeholder="e.g. spine, neuro" />
+        <div class="hint">Ignored when Dataset=Hospitals</div>
+      </label>
+
+      <div class="actions">
+        <button type="submit">Run</button>
+      </div>
+    </div>
+  </form>
+
+  {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  {% if submitted and not error %}
+    <div class="results">
+      {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+
+      {% if export_url %}
+        <div class="export">
+          <a class="button" href="{{ export_url }}">Download CSV</a>
+        </div>
+      {% endif %}
+
+      {% if rows %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {% for c in columns %}<th>{{ c }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+                <tr>
+                  {% for c in columns %}<td>{{ r[c] }}</td>{% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="hint">Showing first {{ rows|length }} rows.</div>
+      {% else %}
+        <div class="hint">No results for that query.</div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
