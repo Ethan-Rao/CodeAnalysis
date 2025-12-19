@@ -22,3 +22,13 @@ exports/
 *.xlsx
 *.xls
 *.pdf
+
+# Local one-off scripts / binaries (not part of CMS Explorer)
+CPTBONES
+CPTBONES.py
+HCPCS1.py
+Headers1.py
+V1.py
+V2.py
+csv_headers_summary.txt
+vs_BuildTools.exe

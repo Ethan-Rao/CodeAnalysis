@@ -42,10 +42,16 @@ python app.py
 
 Then visit: http://127.0.0.1:5000/cms/explorer
 
+### Minimal manual (Windows)
+
+- Run `./run_local.ps1` (creates `.venv`, installs deps, starts the server)
+
 ## Deploy (DigitalOcean App Platform pattern)
 
 - Gunicorn entrypoint: `gunicorn "app:app"`
 - Ensure the repo root is this `CMS` folder.
+
+Important: the raw CMS download folders are gitignored by default because they’re large. For a hosted deployment you’ll need to make the data available to the app environment (e.g., via a separate download step in the build/start command, object storage, or a database in a future iteration).
 
 ## Dev scripts
 
