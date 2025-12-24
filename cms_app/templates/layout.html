@@ -12,6 +12,7 @@
         <div class="brand">CMS Explorer</div>
         <nav class="nav">
           <a href="{{ url_for('cms.explorer') }}">Explorer</a>
+          <a href="{{ url_for('cms.code_classification') }}">Code Classification</a>
         </nav>
       </div>
     </header>
@@ -19,5 +20,6 @@
     <main class="container">
       {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

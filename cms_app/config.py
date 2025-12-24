@@ -19,3 +19,6 @@ class Config:
     )
 
     MAX_TABLE_ROWS = 200
+    
+    # Code classification file
+    CODE_CLASSIFICATIONS_FILE = PROJECT_ROOT / "code_classifications.json"

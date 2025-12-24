@@ -3,14 +3,42 @@
 {% block content %}
   <h1>CMS Explorer</h1>
 
+  <div class="card" style="margin-bottom: 12px;">
+    <div class="hint" style="font-size: 13px;">
+      This tool uses public Medicare billing data to show physicians who most frequently bill specific procedure codes,
+      along with their affiliated hospitals. Numbers reflect Medicare claims only and do not measure quality or outcomes.
+    </div>
+  </div>
+
   <form method="post" class="card">
     <div class="grid">
       <label>
         Dataset
         <select name="dataset">
-          <option value="Doctors" {% if dataset == 'Doctors' %}selected{% endif %}>Doctors</option>
+          <option value="DoctorsByCode" {% if dataset != 'Hospitals' %}selected{% endif %}>Doctors (by CPT/HCPCS code)</option>
           <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals</option>
         </select>
+      </label>
+
+      {% if is_doctors_by_code %}
+      <label>
+        Device Category (optional)
+        <select name="device_category" id="device_category" onchange="loadCategoryCodes()">
+          <option value="">-- Select a device category --</option>
+          {% for cat in device_categories %}
+          <option value="{{ cat.name }}" {% if device_category == cat.name %}selected{% endif %}>
+            {{ cat.name }} ({{ cat.codes|length }} codes)
+          </option>
+          {% endfor %}
+        </select>
+        <div class="hint">Select a device category to auto-populate codes, or <a href="{{ url_for('cms.code_classification') }}">manage categories</a>.</div>
+      </label>
+      {% endif %}
+
+      <label>
+        Codes
+        <input name="codes" id="codes_input" value="{{ codes }}" placeholder="e.g. 62270, 62272, L8679" />
+        <div class="hint">Enter one or more CPT/HCPCS codes (comma-separated), or select a device category above.</div>
       </label>
 
       <label>
@@ -19,9 +47,15 @@
       </label>
 
       <label>
+        Minimum procedures (optional)
+        <input name="min_services" value="{{ min_services }}" placeholder="e.g. 25" />
+        <div class="hint">Hides low-volume outliers.</div>
+      </label>
+
+      <label>
         Doctors: Procedure category substrings (comma-separated)
         <input name="procedure" value="{{ procedure }}" placeholder="e.g. spine, neuro" />
-        <div class="hint">Ignored when Dataset=Hospitals</div>
+        <div class="hint">Experimental. Ignored when Codes are provided.</div>
       </label>
 
       <div class="actions">
@@ -29,6 +63,10 @@
       </div>
     </div>
   </form>
+
+  {% if notice %}
+    <div class="alert">{{ notice }}</div>
+  {% endif %}
 
   {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -49,13 +87,23 @@
           <table>
             <thead>
               <tr>
-                {% for c in columns %}<th>{{ c }}</th>{% endfor %}
+                {% for c in columns %}<th>{{ column_labels.get(c, c) }}</th>{% endfor %}
               </tr>
             </thead>
             <tbody>
               {% for r in rows %}
                 <tr>
-                  {% for c in columns %}<td>{{ r[c] }}</td>{% endfor %}
+                  {% for c in columns %}
+                    {% if c == 'total_payments_selected_codes' or c == 'total_payments' %}
+                      <td>{{ r[c] | currency }}</td>
+                    {% elif c == 'total_services_selected_codes' or c == 'total_procedures' %}
+                      <td>{{ r[c] | intcomma }}</td>
+                    {% elif c == 'num_physicians' or c == 'avg_procedures_per_physician' %}
+                      <td>{{ r[c] | intcomma if r[c] is not none else '' }}</td>
+                    {% else %}
+                      <td>{{ r[c] }}</td>
+                    {% endif %}
+                  {% endfor %}
                 </tr>
               {% endfor %}
             </tbody>
@@ -63,8 +111,31 @@
         </div>
         <div class="hint">Showing first {{ rows|length }} rows.</div>
       {% else %}
-        <div class="hint">No results for that query.</div>
+        <div class="hint">
+          {% if search_mode == 'hospitals' %}
+            No hospitals matched those codes and filters. Try removing filters or checking the code formatting.
+          {% else %}
+            No physicians matched those codes and filters. Try removing filters or checking the code formatting.
+          {% endif %}
+        </div>
       {% endif %}
     </div>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadCategoryCodes() {
+  const select = document.getElementById('device_category');
+  const categoryName = select.value;
+  
+  if (categoryName) {
+    // Submit form to load codes from category
+    const form = select.closest('form');
+    // Change method to GET for category selection
+    form.method = 'get';
+    form.submit();
+  }
+}
+</script>
 {% endblock %}
