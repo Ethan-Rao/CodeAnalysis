@@ -12,6 +12,7 @@ from .code_classification import CodeClassificationManager
 from .cms_query import DOCTORS_BY_CODE_UI_COLUMNS, doctors_by_codes
 from .filters import filter_doctors, filter_hospitals
 from .code_analytics import get_code_market_stats, get_top_codes_by_volume
+from .code_validation import validate_codes_before_search
 from .data_validation import check_data_files, get_data_health_summary
 from .hcpcs_lookup import get_hcpcs_lookup
 from .hospital_analytics import get_hospital_physicians, hospitals_by_codes
@@ -55,7 +56,8 @@ def _parse_csvish_list(value: str | None) -> list[str]:
 
 @cms_bp.route("/explorer", methods=["GET", "POST"])
 def explorer():
-    dataset = request.values.get("dataset", "DoctorsByCode")
+    # Default to Hospitals - primary use case
+    dataset = request.values.get("dataset", "Hospitals")
     states_raw = request.values.get("states", "")
     codes_raw = request.values.get("codes", "")
     min_services_raw = request.values.get("min_services", "")
@@ -155,8 +157,37 @@ def explorer():
                         search_mode=search_mode,
                     )
                 
-                # Use hospital analytics
-                filtered = hospitals_by_codes(codes=codes, states=states, min_procedures=min_services, max_rows=250)
+                # Quick validation: check if codes exist in dataset
+                valid_codes, missing_codes = validate_codes_before_search(codes)
+                if missing_codes:
+                    notice = f"Warning: The following codes were not found in the dataset: {', '.join(missing_codes)}. They may not exist in this year's data or may be very rare."
+                    logger.warning(f"Codes not found in dataset: {missing_codes}")
+                
+                if not valid_codes:
+                    error = f"None of the provided codes ({', '.join(codes)}) were found in the dataset. Please verify the codes are correct and exist in the current year's Medicare data."
+                    return render_template(
+                        "cms_explorer.html",
+                        dataset=dataset,
+                        states=states_raw,
+                        codes=codes_raw,
+                        min_services=min_services_raw,
+                        procedure=procedure_raw,
+                        device_category=device_category,
+                        device_categories=device_categories,
+                        submitted=submitted,
+                        columns=[],
+                        column_labels={},
+                        rows=[],
+                        summary=None,
+                        export_url=None,
+                        error=error,
+                        notice=None,
+                        is_doctors_by_code=False,
+                        search_mode=search_mode,
+                    )
+                
+                # Use hospital analytics with only valid codes
+                filtered = hospitals_by_codes(codes=valid_codes, states=states, min_procedures=min_services, max_rows=250)
                 
                 # Summary
                 n_hospitals = len(filtered)
@@ -262,7 +293,36 @@ def explorer():
                         search_mode=search_mode,
                     )
 
-                df = doctors_by_codes(codes=codes, states=states, min_services=min_services, max_rows=250)
+                # Quick validation: check if codes exist in dataset
+                valid_codes, missing_codes = validate_codes_before_search(codes)
+                if missing_codes:
+                    notice = f"Warning: The following codes were not found in the dataset: {', '.join(missing_codes)}. They may not exist in this year's data or may be very rare."
+                    logger.warning(f"Codes not found in dataset: {missing_codes}")
+                
+                if not valid_codes:
+                    error = f"None of the provided codes ({', '.join(codes)}) were found in the dataset. Please verify the codes are correct and exist in the current year's Medicare data."
+                    return render_template(
+                        "cms_explorer.html",
+                        dataset=dataset,
+                        states=states_raw,
+                        codes=codes_raw,
+                        min_services=min_services_raw,
+                        procedure=procedure_raw,
+                        device_category=device_category,
+                        device_categories=device_categories,
+                        submitted=submitted,
+                        columns=[],
+                        column_labels={},
+                        rows=[],
+                        summary=None,
+                        export_url=None,
+                        error=error,
+                        notice=None,
+                        is_doctors_by_code=True,
+                        search_mode=search_mode,
+                    )
+
+                df = doctors_by_codes(codes=valid_codes, states=states, min_services=min_services, max_rows=250)
                 filtered = df
 
                 # Summary
@@ -427,52 +487,7 @@ def code_lookup():
     )
 
 
-@cms_bp.route("/code-analytics", methods=["GET"])
-def code_analytics():
-    """Code analytics - market intelligence for medical device companies."""
-    limit = request.args.get("limit", "100")
-    min_services = request.args.get("min_services", "100")
-    
-    try:
-        limit_int = int(limit)
-        limit_int = max(10, min(500, limit_int))  # Clamp between 10 and 500
-    except ValueError:
-        limit_int = 100
-    
-    try:
-        min_services_int = int(min_services)
-        min_services_int = max(1, min_services_int)  # At least 1
-    except ValueError:
-        min_services_int = 100
-    
-    # Get top codes
-    try:
-        top_codes_df = get_top_codes_by_volume(limit=limit_int, min_services=min_services_int)
-    except Exception as e:
-        logger.error(f"Error in code analytics: {str(e)}", exc_info=True)
-        top_codes_df = pd.DataFrame()
-    
-    # Enrich with descriptions
-    hcpcs_lookup = get_hcpcs_lookup()
-    codes_with_desc = []
-    if not top_codes_df.empty:
-        for _, row in top_codes_df.iterrows():
-            code = str(row["code"])
-            code_info = hcpcs_lookup.get_code(code)
-            codes_with_desc.append({
-                "code": code,
-                "total_services": int(row["total_services"]),
-                "total_payments": float(row["total_payments"]),
-                "description": code_info.short_description if code_info else "Description not available",
-                "long_description": code_info.long_description if code_info else "",
-            })
-    
-    return render_template(
-        "code_analytics.html",
-        codes=codes_with_desc,
-        limit=limit_int,
-        min_services=min_services_int,
-    )
+# Code analytics route removed - too slow. Use inline insights in explorer instead.
 
 
 @cms_bp.route("/hospital/<facility_id>", methods=["GET"])

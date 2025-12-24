@@ -21,6 +21,7 @@ from .cms_columns import (
     detect_state_col,
     detect_total_payment_col,
 )
+from .logger import logger
 
 
 def hospitals_by_codes_optimized(
@@ -65,7 +66,6 @@ def hospitals_by_codes_optimized(
         affiliations_df = load_facility_affiliations()
         hospitals_df = load_hospital_metadata()
     except Exception as e:
-        from .logger import logger
         logger.error(f"Error loading hospital data: {e}", exc_info=True)
         return pd.DataFrame(
             columns=[
