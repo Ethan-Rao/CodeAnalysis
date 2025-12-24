@@ -25,3 +25,6 @@ class Config:
     
     # Code classification file
     CODE_CLASSIFICATIONS_FILE = PROJECT_ROOT / "code_classifications.json"
+    
+    # Referring provider PUF (for HCPCS A-codes)
+    REFERRING_PUF = PROJECT_ROOT / "refHCPCS.csv"

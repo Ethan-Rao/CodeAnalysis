@@ -1,12 +1,14 @@
 {% extends "layout.html" %}
 
 {% block content %}
-  <h1>CMS Explorer</h1>
+  <h1>Hospital System Explorer</h1>
 
   <div class="card" style="margin-bottom: 12px;">
     <div class="hint" style="font-size: 13px;">
-      This tool uses public Medicare billing data to identify physicians and hospitals who most frequently use specific procedure codes.
-      Perfect for medical device companies seeking to expand their customer base by targeting high-volume providers.
+      <strong>Hospital-Focused Analysis:</strong> This tool aggregates Medicare billing data by hospital system to identify facilities with the highest procedure volumes for specific codes.
+      Perfect for medical device companies targeting hospital systems. Results show total procedures, payments, and physician counts per facility.
+      <br><br>
+      <strong>How it works:</strong> Physician procedure data is aggregated by hospital affiliation to provide facility-level insights. 
       Numbers reflect Medicare claims only and do not measure quality or outcomes.
     </div>
   </div>
@@ -38,11 +40,12 @@
   <form method="post" class="card">
     <div class="grid">
       <label>
-        Dataset
+        View Type
         <select name="dataset">
-          <option value="DoctorsByCode" {% if dataset != 'Hospitals' %}selected{% endif %}>Doctors (by CPT/HCPCS code)</option>
-          <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals (by CPT/HCPCS code)</option>
+          <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals (by CPT/HCPCS code) - Recommended</option>
+          <option value="DoctorsByCode" {% if dataset != 'Hospitals' %}selected{% endif %}>Individual Physicians (by CPT/HCPCS code)</option>
         </select>
+        <div class="hint">Hospital view aggregates physician data by facility for faster analysis.</div>
       </label>
 
       {% if is_doctors_by_code %}
@@ -65,8 +68,7 @@
         <input name="codes" id="codes_input" value="{{ codes }}" placeholder="e.g. 62270, 62272, L8679" autocomplete="off" />
         <div class="hint">
           Enter one or more CPT/HCPCS codes (comma-separated), or select a device category above.
-          <a href="{{ url_for('cms.code_lookup') }}" target="_blank" style="margin-left: 8px;">Look up codes →</a>
-          <a href="{{ url_for('cms.code_analytics') }}" target="_blank" style="margin-left: 8px;">Top codes →</a>
+          <a href="{{ url_for('cms.code_classification') }}" style="margin-left: 8px;">Manage device categories →</a>
         </div>
       </label>
 
@@ -108,13 +110,11 @@
       {% if searched_codes and rows %}
       <div class="card" style="margin-bottom: 12px; background: #f0f9ff; border-color: #3b82f6;">
         <div style="font-size: 13px; color: #1e40af;">
-          <strong>Market Intelligence:</strong> 
+          <strong>Results Summary:</strong> 
           {% if search_mode == 'doctors' %}
-            Found {{ rows|length }} high-volume physicians for these codes. 
-            <a href="{{ url_for('cms.code_analytics') }}" style="color: #0066cc; margin-left: 8px;">Explore top codes →</a>
+            Found {{ rows|length }} high-volume physicians for these codes.
           {% else %}
-            Found {{ rows|length }} high-volume hospitals for these codes.
-            <a href="{{ url_for('cms.code_analytics') }}" style="color: #0066cc; margin-left: 8px;">Explore top codes →</a>
+            Found {{ rows|length }} high-volume hospitals for these codes. Results are sorted by total procedure volume.
           {% endif %}
         </div>
       </div>

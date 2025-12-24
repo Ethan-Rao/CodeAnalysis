@@ -5,6 +5,7 @@ from functools import lru_cache
 
 import pandas as pd
 
+from .code_type_detection import is_hcpcs_code
 from .cms_query import get_paths
 from .cms_columns import detect_hcpcs_col
 
@@ -12,7 +13,9 @@ from .cms_columns import detect_hcpcs_col
 @lru_cache(maxsize=100)
 def check_codes_exist(codes_tuple: tuple[str, ...], sample_size: int = 1_000_000) -> dict[str, bool]:
     """
-    Quickly check if codes exist in the dataset by sampling.
+    Quickly check if codes exist in the appropriate dataset by sampling.
+    - HCPCS codes (letter-prefixed) -> refHCPCS.csv
+    - CPT codes (numeric) -> physHCPCS.csv
     
     Args:
         codes_tuple: Tuple of normalized codes to check
@@ -24,17 +27,41 @@ def check_codes_exist(codes_tuple: tuple[str, ...], sample_size: int = 1_000_000
     if not codes_tuple:
         return {}
     
-    path = get_paths().physician_puf
-    header = list(pd.read_csv(path, nrows=0, low_memory=False).columns)
-    hcpcs_col = detect_hcpcs_col(header)
-    
-    # Sample the dataset
-    chunk = pd.read_csv(path, usecols=[hcpcs_col], nrows=sample_size, low_memory=False)
-    codes_in_data = set(chunk[hcpcs_col].astype(str).str.strip().str.upper().unique())
-    
     result = {}
-    for code in codes_tuple:
-        result[code] = code in codes_in_data
+    
+    # Check HCPCS codes in referring provider dataset
+    hcpcs_codes = [c for c in codes_tuple if is_hcpcs_code(c)]
+    if hcpcs_codes:
+        ref_path = get_paths().referring_puf
+        if ref_path.exists():
+            try:
+                header = list(pd.read_csv(ref_path, nrows=0, low_memory=False).columns)
+                hcpcs_col = detect_hcpcs_col(header)
+                chunk = pd.read_csv(ref_path, usecols=[hcpcs_col], nrows=sample_size, low_memory=False)
+                codes_in_ref = set(chunk[hcpcs_col].astype(str).str.strip().str.upper().unique())
+                for code in hcpcs_codes:
+                    result[code] = code in codes_in_ref
+            except Exception:
+                for code in hcpcs_codes:
+                    result[code] = False
+        else:
+            for code in hcpcs_codes:
+                result[code] = False
+    
+    # Check CPT codes in physician dataset
+    cpt_codes = [c for c in codes_tuple if not is_hcpcs_code(c)]
+    if cpt_codes:
+        phys_path = get_paths().physician_puf
+        try:
+            header = list(pd.read_csv(phys_path, nrows=0, low_memory=False).columns)
+            hcpcs_col = detect_hcpcs_col(header)
+            chunk = pd.read_csv(phys_path, usecols=[hcpcs_col], nrows=sample_size, low_memory=False)
+            codes_in_phys = set(chunk[hcpcs_col].astype(str).str.strip().str.upper().unique())
+            for code in cpt_codes:
+                result[code] = code in codes_in_phys
+        except Exception:
+            for code in cpt_codes:
+                result[code] = False
     
     return result
 
