@@ -20,5 +20,8 @@ class Config:
 
     MAX_TABLE_ROWS = 200
     
+    # HCPCS data directory
+    HCPCS_DATA_DIR = PROJECT_ROOT / "HCPCS"
+    
     # Code classification file
     CODE_CLASSIFICATIONS_FILE = PROJECT_ROOT / "code_classifications.json"
