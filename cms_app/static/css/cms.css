@@ -27,3 +27,15 @@ th { background: #fafbfc; position: sticky; top: 0; z-index: 1; }
 
 .alert { margin-top: 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid; }
 .alert-error { background: #fff5f5; border-color: #f2b8b5; }
+.alert-success { background: #f0f9ff; border-color: #3b82f6; color: #1e40af; }
+
+/* Code description cards */
+.code-card { background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #e6e8ee; }
+.code-card strong { font-family: monospace; color: #0066cc; }
+
+/* Improved table styling */
+table tbody tr:hover { background: #f8f9fa; }
+table th { font-weight: 600; }
+
+/* Action buttons in tables */
+.button-small { font-size: 11px; padding: 4px 8px; }

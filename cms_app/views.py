@@ -5,17 +5,35 @@ import re
 from urllib.parse import urlencode
 
 import pandas as pd
-from flask import Blueprint, Response, current_app, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
 
 from . import data_loading
 from .code_classification import CodeClassificationManager
 from .cms_query import DOCTORS_BY_CODE_UI_COLUMNS, doctors_by_codes
 from .filters import filter_doctors, filter_hospitals
+from .code_analytics import get_code_market_stats, get_top_codes_by_volume
+from .data_validation import check_data_files, get_data_health_summary
 from .hcpcs_lookup import get_hcpcs_lookup
-from .hospital_analytics import hospitals_by_codes
+from .hospital_analytics import get_hospital_physicians, hospitals_by_codes
 from .logger import logger
 
 cms_bp = Blueprint("cms", __name__, template_folder="templates", static_folder="static")
+
+
+@cms_bp.route("/health", methods=["GET"])
+def health_check():
+    """Data health check endpoint."""
+    status = check_data_files()
+    health_summary = get_data_health_summary()
+    
+    all_ok = all(info["exists"] and info["readable"] for info in status.values())
+    
+    return render_template(
+        "health_check.html",
+        status=status,
+        health_summary=health_summary,
+        all_ok=all_ok,
+    )
 
 
 def _parse_csvish_list(value: str | None) -> list[str]:
@@ -54,6 +72,8 @@ def explorer():
     error: str | None = None
     notice: str | None = None
     search_mode = "doctors"  # "doctors" or "hospitals"
+    code_descriptions: dict[str, dict[str, str]] = {}
+    searched_codes: list[str] = []
 
     # Load device categories for dropdown
     classification_manager = CodeClassificationManager()
@@ -174,6 +194,20 @@ def explorer():
                     "device_category": device_category or "",
                 }
                 export_url = "/cms/export?" + urlencode(q)
+                
+                columns = list(preview.columns)
+                rows = preview.to_dict(orient="records")
+                
+                # Enrich with HCPCS code descriptions
+                hcpcs_lookup = get_hcpcs_lookup()
+                for code in codes:
+                    code_info = hcpcs_lookup.get_code(code)
+                    if code_info:
+                        code_descriptions[code.upper()] = {
+                            "short": code_info.short_description or (code_info.long_description[:50] if code_info.long_description else ""),
+                            "long": code_info.long_description or "",
+                        }
+                searched_codes = codes
             else:  # DoctorsByCode
                 search_mode = "doctors"
                 if not codes:
@@ -258,6 +292,17 @@ def explorer():
 
             columns = list(preview.columns)
             rows = preview.to_dict(orient="records")
+            
+            # Enrich with HCPCS code descriptions
+            hcpcs_lookup = get_hcpcs_lookup()
+            for code in codes:
+                code_info = hcpcs_lookup.get_code(code)
+                if code_info:
+                    code_descriptions[code.upper()] = {
+                        "short": code_info.short_description or code_info.long_description[:50],
+                        "long": code_info.long_description,
+                    }
+            searched_codes = codes
         except Exception as e:
             logger.error(f"Error in explorer: {str(e)}", exc_info=True)
             error = str(e)
@@ -281,6 +326,8 @@ def explorer():
         notice=notice,
         is_doctors_by_code=(dataset != "Hospitals"),
         search_mode=search_mode,
+        code_descriptions=code_descriptions,
+        searched_codes=searched_codes,
     )
 
 
@@ -338,6 +385,151 @@ def export():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@cms_bp.route("/code-lookup", methods=["GET"])
+def code_lookup():
+    """HCPCS code lookup and search interface."""
+    query = request.args.get("query", "").strip()
+    codes = []
+    popular_codes = []
+    
+    hcpcs_lookup = get_hcpcs_lookup()
+    
+    if query:
+        # Search for codes
+        code_objects = hcpcs_lookup.search_codes(query, limit=50)
+        codes = [code.to_dict() for code in code_objects]
+    else:
+        # Show popular codes for medical device companies
+        # These are common device-related codes
+        popular_code_list = [
+            "L8679", "A4593", "62270", "62272", "61889", "77080",
+            "27215", "27216", "27217", "27218", "27236", "27244",
+            "27447", "27486", "27487", "27130", "27132",
+            "22840", "22842", "22843", "22844", "22845",
+            "C1776", "C1778", "C1821", "C1822",
+        ]
+        
+        for code_str in popular_code_list:
+            code_obj = hcpcs_lookup.get_code(code_str)
+            if code_obj:
+                popular_codes.append({
+                    "code": code_obj.code,
+                    "description": code_obj.short_description or code_obj.long_description[:80],
+                })
+    
+    return render_template(
+        "code_lookup.html",
+        query=query,
+        codes=codes,
+        popular_codes=popular_codes,
+    )
+
+
+@cms_bp.route("/code-analytics", methods=["GET"])
+def code_analytics():
+    """Code analytics - market intelligence for medical device companies."""
+    limit = request.args.get("limit", "100")
+    min_services = request.args.get("min_services", "100")
+    
+    try:
+        limit_int = int(limit)
+        limit_int = max(10, min(500, limit_int))  # Clamp between 10 and 500
+    except ValueError:
+        limit_int = 100
+    
+    try:
+        min_services_int = int(min_services)
+        min_services_int = max(1, min_services_int)  # At least 1
+    except ValueError:
+        min_services_int = 100
+    
+    # Get top codes
+    try:
+        top_codes_df = get_top_codes_by_volume(limit=limit_int, min_services=min_services_int)
+    except Exception as e:
+        logger.error(f"Error in code analytics: {str(e)}", exc_info=True)
+        top_codes_df = pd.DataFrame()
+    
+    # Enrich with descriptions
+    hcpcs_lookup = get_hcpcs_lookup()
+    codes_with_desc = []
+    if not top_codes_df.empty:
+        for _, row in top_codes_df.iterrows():
+            code = str(row["code"])
+            code_info = hcpcs_lookup.get_code(code)
+            codes_with_desc.append({
+                "code": code,
+                "total_services": int(row["total_services"]),
+                "total_payments": float(row["total_payments"]),
+                "description": code_info.short_description if code_info else "Description not available",
+                "long_description": code_info.long_description if code_info else "",
+            })
+    
+    return render_template(
+        "code_analytics.html",
+        codes=codes_with_desc,
+        limit=limit_int,
+        min_services=min_services_int,
+    )
+
+
+@cms_bp.route("/hospital/<facility_id>", methods=["GET"])
+def hospital_detail(facility_id: str):
+    """Hospital detail page showing physicians and statistics."""
+    codes_raw = request.args.get("codes", "")
+    codes = _parse_csvish_list(codes_raw) if codes_raw else None
+    
+    # Get hospital info
+    from .cms_query import load_hospital_metadata
+    hospitals = load_hospital_metadata()
+    hospital_row = hospitals[hospitals["facility_id"] == facility_id]
+    
+    if hospital_row.empty:
+        return render_template(
+            "error.html",
+            error="Hospital not found",
+            message=f"Hospital with Facility ID {facility_id} not found in database.",
+        ), 404
+    
+    hospital = hospital_row.iloc[0].to_dict()
+    
+    # Get physicians at this hospital for the codes
+    physicians = []
+    if codes:
+        physicians_df = get_hospital_physicians(facility_id, codes=codes, max_rows=500)
+        physicians = physicians_df.to_dict(orient="records")
+        
+        # Add hospital stats if available
+        hospitals_df = hospitals_by_codes(codes=codes, max_rows=10000)
+        hosp_stats = hospitals_df[hospitals_df["facility_id"] == facility_id]
+        if not hosp_stats.empty:
+            stats = hosp_stats.iloc[0]
+            hospital["total_procedures"] = stats.get("total_procedures", 0)
+            hospital["total_payments"] = stats.get("total_payments", 0)
+            hospital["num_physicians"] = stats.get("num_physicians", 0)
+            hospital["code_breakdown"] = stats.get("code_breakdown", "")
+    
+    return render_template(
+        "hospital_detail.html",
+        hospital=hospital,
+        physicians=physicians,
+        codes=codes,
+    )
+
+
+@cms_bp.route("/api/code-autocomplete", methods=["GET"])
+def code_autocomplete():
+    """API endpoint for code autocomplete."""
+    prefix = request.args.get("q", "").strip()
+    if not prefix or len(prefix) < 2:
+        return {"results": []}
+    
+    hcpcs_lookup = get_hcpcs_lookup()
+    results = hcpcs_lookup.autocomplete(prefix, limit=20)
+    
+    return {"results": results}
 
 
 @cms_bp.route("/code-classification", methods=["GET", "POST"])

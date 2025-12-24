@@ -5,10 +5,35 @@
 
   <div class="card" style="margin-bottom: 12px;">
     <div class="hint" style="font-size: 13px;">
-      This tool uses public Medicare billing data to show physicians who most frequently bill specific procedure codes,
-      along with their affiliated hospitals. Numbers reflect Medicare claims only and do not measure quality or outcomes.
+      This tool uses public Medicare billing data to identify physicians and hospitals who most frequently use specific procedure codes.
+      Perfect for medical device companies seeking to expand their customer base by targeting high-volume providers.
+      Numbers reflect Medicare claims only and do not measure quality or outcomes.
     </div>
   </div>
+
+  {% if searched_codes and code_descriptions %}
+  <div class="card" style="margin-bottom: 12px; background: #f8f9fa;">
+    <h3 style="margin-top: 0; font-size: 16px;">Searched Codes:</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+      {% for code in searched_codes %}
+        {% set code_upper = code.upper() %}
+        {% if code_descriptions.get(code_upper) %}
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #e6e8ee;">
+            <strong style="font-family: monospace; color: #0066cc;">{{ code_upper }}</strong>
+            <div style="font-size: 12px; color: #555; margin-top: 4px;">
+              {{ code_descriptions[code_upper].short }}
+            </div>
+          </div>
+        {% else %}
+          <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #e6e8ee;">
+            <strong style="font-family: monospace; color: #0066cc;">{{ code_upper }}</strong>
+            <div style="font-size: 12px; color: #999; margin-top: 4px;">Description not available</div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <form method="post" class="card">
     <div class="grid">
@@ -16,7 +41,7 @@
         Dataset
         <select name="dataset">
           <option value="DoctorsByCode" {% if dataset != 'Hospitals' %}selected{% endif %}>Doctors (by CPT/HCPCS code)</option>
-          <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals</option>
+          <option value="Hospitals" {% if dataset == 'Hospitals' %}selected{% endif %}>Hospitals (by CPT/HCPCS code)</option>
         </select>
       </label>
 
@@ -37,8 +62,12 @@
 
       <label>
         Codes
-        <input name="codes" id="codes_input" value="{{ codes }}" placeholder="e.g. 62270, 62272, L8679" />
-        <div class="hint">Enter one or more CPT/HCPCS codes (comma-separated), or select a device category above.</div>
+        <input name="codes" id="codes_input" value="{{ codes }}" placeholder="e.g. 62270, 62272, L8679" autocomplete="off" />
+        <div class="hint">
+          Enter one or more CPT/HCPCS codes (comma-separated), or select a device category above.
+          <a href="{{ url_for('cms.code_lookup') }}" target="_blank" style="margin-left: 8px;">Look up codes →</a>
+          <a href="{{ url_for('cms.code_analytics') }}" target="_blank" style="margin-left: 8px;">Top codes →</a>
+        </div>
       </label>
 
       <label>
@@ -75,6 +104,21 @@
   {% if submitted and not error %}
     <div class="results">
       {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+      
+      {% if searched_codes and rows %}
+      <div class="card" style="margin-bottom: 12px; background: #f0f9ff; border-color: #3b82f6;">
+        <div style="font-size: 13px; color: #1e40af;">
+          <strong>Market Intelligence:</strong> 
+          {% if search_mode == 'doctors' %}
+            Found {{ rows|length }} high-volume physicians for these codes. 
+            <a href="{{ url_for('cms.code_analytics') }}" style="color: #0066cc; margin-left: 8px;">Explore top codes →</a>
+          {% else %}
+            Found {{ rows|length }} high-volume hospitals for these codes.
+            <a href="{{ url_for('cms.code_analytics') }}" style="color: #0066cc; margin-left: 8px;">Explore top codes →</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
 
       {% if export_url %}
         <div class="export">
@@ -88,6 +132,7 @@
             <thead>
               <tr>
                 {% for c in columns %}<th>{{ column_labels.get(c, c) }}</th>{% endfor %}
+                {% if search_mode == 'hospitals' %}<th>Actions</th>{% endif %}
               </tr>
             </thead>
             <tbody>
@@ -100,10 +145,21 @@
                       <td>{{ r[c] | intcomma }}</td>
                     {% elif c == 'num_physicians' or c == 'avg_procedures_per_physician' %}
                       <td>{{ r[c] | intcomma if r[c] is not none else '' }}</td>
+                    {% elif c == 'facility_id' %}
+                      <td style="font-family: monospace;">{{ r[c] }}</td>
                     {% else %}
                       <td>{{ r[c] }}</td>
                     {% endif %}
                   {% endfor %}
+                  {% if search_mode == 'hospitals' %}
+                  <td>
+                    <a href="{{ url_for('cms.hospital_detail', facility_id=r.facility_id, codes=codes) }}" 
+                       class="button" 
+                       style="font-size: 11px; padding: 4px 8px;">
+                      View Details
+                    </a>
+                  </td>
+                  {% endif %}
                 </tr>
               {% endfor %}
             </tbody>
@@ -136,6 +192,16 @@ function loadCategoryCodes() {
     form.method = 'get';
     form.submit();
   }
+}
+
+// Code autocomplete (basic implementation)
+let autocompleteTimeout;
+const codesInput = document.getElementById('codes_input');
+if (codesInput) {
+  codesInput.addEventListener('input', function(e) {
+    // Could implement autocomplete here if needed
+    // For now, users can use Code Lookup page
+  });
 }
 </script>
 {% endblock %}
