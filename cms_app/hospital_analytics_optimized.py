@@ -15,6 +15,7 @@ import pandas as pd
 
 from .cms_query import get_paths, load_facility_affiliations, load_hospital_metadata, normalize_codes, normalize_states
 from .cms_columns import (
+    detect_avg_payment_col,
     detect_hcpcs_col,
     detect_npi_col,
     detect_services_col,
@@ -112,8 +113,10 @@ def hospitals_by_codes_optimized(
     state_col = detect_state_col(header)
     services_col = detect_services_col(header)
     total_payment_col = detect_total_payment_col(header)
+    avg_payment_col = detect_avg_payment_col(header)
     
-    usecols = [c for c in [npi_col, hcpcs_col, state_col, services_col, total_payment_col] if c]
+    # Include avg_payment_col if total_payment_col doesn't exist (we'll calculate it)
+    usecols = [c for c in [npi_col, hcpcs_col, state_col, services_col, total_payment_col, avg_payment_col] if c]
     
     # Direct hospital-level aggregation
     hospital_stats: Dict[str, Dict[str, Any]] = {}
@@ -123,17 +126,19 @@ def hospitals_by_codes_optimized(
     
     for chunk in pd.read_csv(path, usecols=usecols, low_memory=False, chunksize=chunksize):
         # Early filtering in pandas (vectorized)
-        chunk = chunk.rename(
-            columns={
-                npi_col: "npi",
-                hcpcs_col: "code",
-                state_col: "state",
-                services_col: "services",
-                (total_payment_col or ""): "total_payment",
-            }
-        )
-        if "" in chunk.columns:
-            chunk = chunk.drop(columns=[""])
+        # Build rename dict
+        rename_dict = {
+            npi_col: "npi",
+            hcpcs_col: "code",
+            state_col: "state",
+            services_col: "services",
+        }
+        if total_payment_col:
+            rename_dict[total_payment_col] = "total_payment"
+        if avg_payment_col:
+            rename_dict[avg_payment_col] = "avg_payment"
+        
+        chunk = chunk.rename(columns=rename_dict)
         
         # Convert to string and normalize
         chunk["npi"] = chunk["npi"].astype(str).str.strip()
@@ -152,8 +157,14 @@ def hospitals_by_codes_optimized(
         
         # Convert numeric columns
         chunk["services"] = pd.to_numeric(chunk["services"], errors="coerce").fillna(0)
+        
+        # Calculate total payment correctly
         if "total_payment" in chunk.columns:
             chunk["total_payment"] = pd.to_numeric(chunk["total_payment"], errors="coerce").fillna(0)
+        elif "avg_payment" in chunk.columns:
+            # Calculate total payment as average * services
+            chunk["avg_payment"] = pd.to_numeric(chunk["avg_payment"], errors="coerce").fillna(0)
+            chunk["total_payment"] = chunk["avg_payment"] * chunk["services"]
         else:
             chunk["total_payment"] = 0.0
         
