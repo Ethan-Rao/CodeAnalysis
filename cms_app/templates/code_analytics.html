@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>Code Analytics - Market Intelligence</h1>
+
+  <div class="card" style="margin-bottom: 12px;">
+    <div class="hint" style="font-size: 13px;">
+      Discover which HCPCS/CPT codes have the highest procedure volumes. This helps identify market opportunities
+      and understand which codes are most relevant for medical device companies.
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Filters</h2>
+    <form method="get" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end;">
+      <label>
+        Top N Codes
+        <input type="number" name="limit" value="{{ limit }}" min="10" max="500" />
+      </label>
+      <label>
+        Minimum Services
+        <input type="number" name="min_services" value="{{ min_services }}" min="1" />
+      </label>
+      <div class="actions">
+        <button type="submit">Update</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Results -->
+  {% if codes %}
+  <div class="card">
+    <h2 style="margin-top: 0;">Top {{ codes|length }} Codes by Procedure Volume</h2>
+    <div class="hint" style="margin-bottom: 12px;">
+      Showing codes with at least {{ min_services | intcomma }} total procedures.
+    </div>
+    
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Code</th>
+            <th>Description</th>
+            <th>Total Procedures</th>
+            <th>Total Payments</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for code_info in codes %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #0066cc;">{{ code_info.code }}</td>
+            <td>
+              <div style="font-size: 12px;">{{ code_info.description }}</div>
+              {% if code_info.long_description and code_info.long_description != code_info.description %}
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">{{ code_info.long_description[:100] }}{% if code_info.long_description|length > 100 %}...{% endif %}</div>
+              {% endif %}
+            </td>
+            <td>{{ code_info.total_services | intcomma }}</td>
+            <td>{{ code_info.total_payments | currency }}</td>
+            <td>
+              <a href="{{ url_for('cms.explorer', codes=code_info.code) }}" class="button" style="font-size: 11px; padding: 4px 8px;">
+                Search Usage
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert">
+    No codes found matching the criteria. Try reducing the minimum services threshold.
+  </div>
+  {% endif %}
+
+  <div style="margin-top: 20px;">
+    <a href="{{ url_for('cms.explorer') }}" class="button">Back to Explorer</a>
+  </div>
+{% endblock %}
+

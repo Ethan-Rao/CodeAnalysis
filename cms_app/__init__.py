@@ -12,4 +12,23 @@ def create_app() -> Flask:
     app.config.from_object("cms_app.config.Config")
 
     app.register_blueprint(cms_bp, url_prefix="/cms")
+
+    @app.template_filter("intcomma")
+    def _intcomma(value):
+        try:
+            if value is None:
+                return ""
+            return f"{int(float(value)):,}"
+        except Exception:
+            return str(value)
+
+    @app.template_filter("currency")
+    def _currency(value):
+        try:
+            if value is None:
+                return ""
+            return f"${float(value):,.0f}"
+        except Exception:
+            return str(value)
+
     return app

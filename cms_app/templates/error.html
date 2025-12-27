@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <div class="card">
+    <h1 style="color: #dc2626;">Error</h1>
+    <h2>{{ error }}</h2>
+    {% if message %}
+    <p>{{ message }}</p>
+    {% endif %}
+    <div style="margin-top: 20px;">
+      <a href="{{ url_for('cms.explorer') }}" class="button">Back to Explorer</a>
+    </div>
+  </div>
+{% endblock %}
+

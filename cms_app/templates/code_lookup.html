@@ -1,0 +1,125 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>HCPCS Code Lookup & Search</h1>
+
+  <div class="card" style="margin-bottom: 12px;">
+    <div class="hint" style="font-size: 13px;">
+      Search and explore HCPCS/CPT codes to understand which procedures are most relevant for your products.
+      Use this tool to identify codes that align with your medical device offerings.
+    </div>
+  </div>
+
+  <!-- Search Form -->
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Search Codes</h2>
+    <form method="get" id="code_search_form">
+      <div class="grid">
+        <label>
+          Search by description or code
+          <input 
+            type="text" 
+            name="query" 
+            value="{{ query }}" 
+            placeholder="e.g. spinal fusion, L8679, or 62270"
+            id="code_search_input"
+            autocomplete="off"
+          />
+          <div class="hint">Search in code descriptions or enter a specific code</div>
+        </label>
+        <div class="actions">
+          <button type="submit">Search</button>
+          <a href="{{ url_for('cms.code_lookup') }}" class="button" style="background: #6c757d;">Clear</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Search Results -->
+  {% if query %}
+    {% if codes %}
+      <div class="card">
+        <h2 style="margin-top: 0;">Search Results ({{ codes|length }} found)</h2>
+        <div style="display: grid; gap: 12px;">
+          {% for code_info in codes %}
+            <div style="border: 1px solid #e6e8ee; padding: 16px; border-radius: 8px; background: white;">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                <div>
+                  <h3 style="margin: 0; font-size: 18px;">
+                    <span style="font-family: monospace; color: #0066cc; font-weight: bold;">{{ code_info.code }}</span>
+                    {% if code_info.modifier %}
+                      <span style="font-family: monospace; color: #6c757d;">(Modifier: {{ code_info.modifier }})</span>
+                    {% endif %}
+                  </h3>
+                  <div style="font-size: 14px; color: #555; margin-top: 4px;">
+                    {{ code_info.short_description }}
+                  </div>
+                </div>
+                <a href="{{ url_for('cms.explorer', codes=code_info.code) }}" class="button" style="font-size: 12px; padding: 6px 12px;">
+                  Search Usage
+                </a>
+              </div>
+              
+              {% if code_info.long_description and code_info.long_description != code_info.short_description %}
+                <div style="font-size: 13px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0;">
+                  <strong>Full Description:</strong> {{ code_info.long_description }}
+                </div>
+              {% endif %}
+              
+              <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #666;">
+                {% if code_info.betos_code %}
+                  <span><strong>BETOS:</strong> {{ code_info.betos_code }}</span>
+                {% endif %}
+                {% if code_info.type_of_service %}
+                  <span><strong>Type of Service:</strong> {{ code_info.type_of_service }}</span>
+                {% endif %}
+                {% if code_info.coverage_code %}
+                  <span><strong>Coverage:</strong> {{ code_info.coverage_code }}</span>
+                {% endif %}
+                {% if code_info.effective_date %}
+                  <span><strong>Effective:</strong> {{ code_info.effective_date[:4] }}-{{ code_info.effective_date[4:6] }}-{{ code_info.effective_date[6:8] }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <div class="alert">
+        No codes found matching "{{ query }}". Try a different search term or browse popular codes below.
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <!-- Popular Codes Section -->
+  <div class="card">
+    <h2 style="margin-top: 0;">Popular Medical Device Codes</h2>
+    <div class="hint" style="margin-bottom: 12px;">
+      These are commonly searched codes for medical device companies. Click "Search" to find providers using these codes.
+      <a href="{{ url_for('cms.code_analytics') }}" style="margin-left: 8px;">View top codes by volume →</a>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+      {% for popular_code in popular_codes %}
+        <div style="border: 1px solid #e6e8ee; padding: 12px; border-radius: 6px; background: white;">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div style="flex: 1;">
+              <strong style="font-family: monospace; color: #0066cc; font-size: 16px;">{{ popular_code.code }}</strong>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                {{ popular_code.description[:60] }}{% if popular_code.description|length > 60 %}...{% endif %}
+              </div>
+            </div>
+            <a href="{{ url_for('cms.explorer', codes=popular_code.code) }}" class="button" style="font-size: 11px; padding: 4px 8px; margin-left: 8px;">
+              Search
+            </a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <a href="{{ url_for('cms.explorer') }}" class="button">Back to Explorer</a>
+  </div>
+{% endblock %}
+

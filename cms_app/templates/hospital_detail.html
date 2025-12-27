@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>Hospital Details: {{ hospital.hospital_name }}</h1>
+
+  <div style="margin-bottom: 16px;">
+    <a href="{{ url_for('cms.explorer') }}" class="button" style="background: #6c757d; font-size: 12px; padding: 6px 12px;">← Back to Explorer</a>
+  </div>
+
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Hospital Information</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+      <div>
+        <strong>Facility ID:</strong><br>
+        <span style="font-family: monospace;">{{ hospital.facility_id }}</span>
+      </div>
+      <div>
+        <strong>Location:</strong><br>
+        {{ hospital.hospital_city }}, {{ hospital.hospital_state }}
+      </div>
+      {% if hospital.total_procedures %}
+      <div>
+        <strong>Total Procedures:</strong><br>
+        {{ hospital.total_procedures | intcomma }}
+      </div>
+      <div>
+        <strong>Total Payments:</strong><br>
+        {{ hospital.total_payments | currency }}
+      </div>
+      <div>
+        <strong>Number of Physicians:</strong><br>
+        {{ hospital.num_physicians | intcomma }}
+      </div>
+      {% if hospital.code_breakdown %}
+      <div style="grid-column: 1 / -1;">
+        <strong>Code Breakdown:</strong><br>
+        <div style="font-size: 12px; color: #666;">{{ hospital.code_breakdown }}</div>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if physicians %}
+  <div class="card">
+    <h2 style="margin-top: 0;">Affiliated Physicians</h2>
+    <div class="hint" style="margin-bottom: 12px;">
+      Physicians at this hospital who perform procedures for the searched codes.
+    </div>
+    
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Doctor Name</th>
+            <th>NPI</th>
+            <th>Specialty</th>
+            <th>City, State</th>
+            <th>Procedures</th>
+            <th>Payments</th>
+            <th>Code Breakdown</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in physicians %}
+          <tr>
+            <td>{{ doc.doctor_name }}</td>
+            <td style="font-family: monospace;">{{ doc.npi }}</td>
+            <td>{{ doc.specialty }}</td>
+            <td>{{ doc.city }}, {{ doc.state }}</td>
+            <td>{{ doc.total_services_selected_codes | intcomma }}</td>
+            <td>{{ doc.total_payments_selected_codes | currency }}</td>
+            <td style="font-size: 11px;">{{ doc.code_breakdown }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if codes %}
+  <div class="card" style="margin-top: 20px;">
+    <h2 style="margin-top: 0;">Search for Other Codes at This Hospital</h2>
+    <form method="get" action="{{ url_for('cms.explorer') }}">
+      <input type="hidden" name="dataset" value="Hospitals" />
+      <div style="display: flex; gap: 8px; align-items: end;">
+        <label style="flex: 1; margin: 0;">
+          <input type="text" name="codes" placeholder="Enter codes (e.g. 62270, L8679)" style="margin-top: 0;" />
+        </label>
+        <button type="submit" style="font-size: 12px; padding: 6px 12px;">Search</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}
+

@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>Data Health Check</h1>
+
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Status</h2>
+    {% if all_ok %}
+    <div class="alert alert-success">
+      ✓ All required data files are present and accessible.
+    </div>
+    {% else %}
+    <div class="alert alert-error">
+      ⚠ Some data files are missing or inaccessible. This may affect functionality.
+    </div>
+    {% endif %}
+    
+    <pre style="background: #f8f9fa; padding: 12px; border-radius: 6px; font-size: 12px; white-space: pre-wrap;">{{ health_summary }}</pre>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top: 0;">File Details</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data Source</th>
+            <th>Status</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, info in status.items() %}
+          <tr>
+            <td><strong>{{ name.replace('_', ' ').title() }}</strong></td>
+            <td>
+              {% if info.exists and info.readable %}
+                <span style="color: #22c55e;">✓ Available</span>
+              {% elif info.exists %}
+                <span style="color: #f59e0b;">⚠ Exists but not readable</span>
+              {% else %}
+                <span style="color: #ef4444;">✗ Not found</span>
+              {% endif %}
+            </td>
+            <td style="font-family: monospace; font-size: 11px;">{{ info.path }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <a href="{{ url_for('cms.explorer') }}" class="button">Back to Explorer</a>
+  </div>
+{% endblock %}
+
