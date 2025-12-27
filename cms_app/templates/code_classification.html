@@ -1,0 +1,127 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>Code Classification Management</h1>
+
+  <div class="card" style="margin-bottom: 12px;">
+    <div class="hint" style="font-size: 13px;">
+      Organize HCPCS/CPT codes into device categories to quickly search for target customers.
+      Categories can be selected in the Explorer to automatically populate codes.
+    </div>
+  </div>
+
+  {% if success %}
+    <div class="alert" style="background: #f0f9ff; border-color: #3b82f6; color: #1e40af;">
+      {{ success }}
+    </div>
+  {% endif %}
+
+  {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <!-- Create New Category -->
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Create New Category</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="create" />
+      <div class="grid">
+        <label>
+          Category Name
+          <input type="text" name="name" required placeholder="e.g. Spinal Fusion Devices" />
+        </label>
+        <label>
+          Description
+          <input type="text" name="description" placeholder="Brief description of this category" />
+        </label>
+        <div class="actions">
+          <button type="submit">Create Category</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Existing Categories -->
+  <div class="card">
+    <h2 style="margin-top: 0;">Device Categories</h2>
+    
+    {% if categories %}
+      {% for category in categories %}
+        <div class="category-card" style="border: 1px solid #e6e8ee; padding: 16px; margin-bottom: 16px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <div>
+              <h3 style="margin: 0 0 4px 0;">{{ category.name }}</h3>
+              {% if category.description %}
+                <p style="margin: 0; color: #555; font-size: 14px;">{{ category.description }}</p>
+              {% endif %}
+              <div class="hint" style="margin-top: 4px;">
+                {{ category.codes|length }} code(s) | Created: {{ category.created_at[:10] }}
+              </div>
+            </div>
+            <div>
+              <form method="post" style="display: inline;" onsubmit="return confirm('Delete category {{ category.name }}?');">
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="name" value="{{ category.name }}" />
+                <button type="submit" style="background: #dc2626; font-size: 12px; padding: 6px 10px;">Delete</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Update Description -->
+          <form method="post" style="margin-bottom: 12px;">
+            <input type="hidden" name="action" value="update" />
+            <input type="hidden" name="name" value="{{ category.name }}" />
+            <div style="display: flex; gap: 8px; align-items: end;">
+              <label style="flex: 1; margin: 0;">
+                <input type="text" name="description" value="{{ category.description }}" placeholder="Update description" style="margin-top: 0;" />
+              </label>
+              <button type="submit" style="font-size: 12px; padding: 6px 10px;">Update Description</button>
+            </div>
+          </form>
+
+          <!-- Codes List -->
+          <div style="margin-bottom: 12px;">
+            <strong>Codes:</strong>
+            {% if category.codes %}
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                {% for code in category.codes %}
+                  <span style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace; display: inline-flex; align-items: center; gap: 6px;">
+                    {{ code }}
+                    <form method="post" style="display: inline; margin: 0;" onsubmit="return confirm('Remove {{ code }} from {{ category.name }}?');">
+                      <input type="hidden" name="action" value="remove_code" />
+                      <input type="hidden" name="category_name" value="{{ category.name }}" />
+                      <input type="hidden" name="code" value="{{ code }}" />
+                      <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; font-size: 14px; line-height: 1;">×</button>
+                    </form>
+                  </span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="hint" style="margin-top: 4px;">No codes yet. Add codes below.</div>
+            {% endif %}
+          </div>
+
+          <!-- Add Code -->
+          <form method="post">
+            <input type="hidden" name="action" value="add_code" />
+            <input type="hidden" name="category_name" value="{{ category.name }}" />
+            <div style="display: flex; gap: 8px; align-items: end;">
+              <label style="flex: 1; margin: 0;">
+                <input type="text" name="code" placeholder="Enter HCPCS/CPT code (e.g. 62270, L8679)" required style="margin-top: 0; text-transform: uppercase;" />
+              </label>
+              <button type="submit" style="font-size: 12px; padding: 6px 10px;">Add Code</button>
+            </div>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="hint">No device categories yet. Create one above to get started.</div>
+    {% endif %}
+  </div>
+
+  <div style="margin-top: 20px;">
+    <a href="{{ url_for('cms.explorer') }}" class="button">Back to Explorer</a>
+  </div>
+{% endblock %}
+
+
